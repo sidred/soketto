@@ -141,14 +141,14 @@ where
 // bytes in total for all of the characters.
 //
 // See https://datatracker.ietf.org/doc/html/rfc6455#section-1.3 for more information on this.
-fn generate_accept_key<'k>(key_base64: &WebSocketKey) -> [u8; 28] {
+fn generate_accept_key(key_base64: &WebSocketKey) -> [u8; 28] {
 	let mut digest = Sha1::new();
 	digest.update(key_base64);
 	digest.update(KEY);
 	let d = digest.finalize();
 
 	let mut output_buf = [0; 28];
-	let n = base64::encode_config_slice(&d, base64::STANDARD, &mut output_buf);
+	let n = base64::encode_config_slice(d, base64::STANDARD, &mut output_buf);
 	debug_assert_eq!(n, 28, "encoding to base64 should be exactly 28 bytes");
 	output_buf
 }

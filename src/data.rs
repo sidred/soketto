@@ -26,20 +26,12 @@ pub enum Incoming<'a> {
 impl Incoming<'_> {
 	/// Is this text or binary data?
 	pub fn is_data(&self) -> bool {
-		if let Incoming::Data(_) = self {
-			true
-		} else {
-			false
-		}
+		matches!(self, Incoming::Data(_))
 	}
 
 	/// Is this a PONG?
 	pub fn is_pong(&self) -> bool {
-		if let Incoming::Pong(_) = self {
-			true
-		} else {
-			false
-		}
+		matches!(self, Incoming::Pong(_))
 	}
 
 	/// Is this text data?
@@ -72,20 +64,12 @@ pub enum Data {
 impl Data {
 	/// Is this text data?
 	pub fn is_text(&self) -> bool {
-		if let Data::Text(_) = self {
-			true
-		} else {
-			false
-		}
+		matches!(self, Data::Text(_))
 	}
 
 	/// Is this binary data?
 	pub fn is_binary(&self) -> bool {
-		if let Data::Binary(_) = self {
-			true
-		} else {
-			false
-		}
+		matches!(self, Data::Binary(_))
 	}
 
 	/// The length of data (number of bytes).
@@ -94,6 +78,15 @@ impl Data {
 			Data::Text(n) => *n,
 			Data::Binary(n) => *n,
 		}
+	}
+
+	/// return true if the size is 0
+	pub fn is_empty(&self) -> bool {
+		let size = match self {
+			Data::Text(n) => *n,
+			Data::Binary(n) => *n,
+		};
+		size == 0
 	}
 }
 
