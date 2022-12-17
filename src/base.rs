@@ -68,11 +68,7 @@ pub enum OpCode {
 impl OpCode {
 	/// Is this a control opcode?
 	pub fn is_control(self) -> bool {
-		if let OpCode::Close | OpCode::Ping | OpCode::Pong = self {
-			true
-		} else {
-			false
-		}
+		matches!(self, OpCode::Close | OpCode::Ping | OpCode::Pong)
 	}
 
 	/// Is this opcode reserved?

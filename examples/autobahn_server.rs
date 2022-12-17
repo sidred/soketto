@@ -21,7 +21,7 @@ use tokio_stream::{wrappers::TcpListenerStream, StreamExt};
 use tokio_util::compat::{Compat, TokioAsyncReadCompatExt};
 #[tokio::main]
 async fn main() -> Result<(), BoxedError> {
-	let listener = TcpListener::bind("127.0.0.1:9001").await?;
+	let listener = TcpListener::bind("0.0.0.0:9001").await?;
 	let mut incoming = TcpListenerStream::new(listener);
 	while let Some(socket) = incoming.next().await {
 		let mut server = new_server(socket?);
@@ -62,8 +62,8 @@ async fn main() -> Result<(), BoxedError> {
 }
 
 #[cfg(not(feature = "deflate"))]
-fn new_server<'a>(socket: TcpStream) -> handshake::Server<'a, BufReader<BufWriter<Compat<TcpStream>>>> {
-	handshake::Server::new(BufReader::new(BufWriter::new(socket.compat())))
+fn new_server<'a>(socket: TcpStream) -> handshake::Server<'a> {
+	handshake::Server::new(socket)
 }
 
 #[cfg(feature = "deflate")]

@@ -27,7 +27,6 @@
 //! # Client example
 //!
 //! ```no_run
-//! # use tokio_util::compat::TokioAsyncReadCompatExt;
 //! # async fn doc() -> Result<(), soketto::BoxedError> {
 //! use soketto::handshake::{Client, ServerResponse};
 //!
@@ -35,7 +34,7 @@
 //! let socket = tokio::net::TcpStream::connect("...").await?;
 //!
 //! // Then we configure the client handshake.
-//! let mut client = Client::new(socket.compat(), "...", "/");
+//! let mut client = Client::new(socket, "...", "/");
 //!
 //! // And finally we perform the handshake and handle the result.
 //! let (mut sender, mut receiver) = match client.handshake().await? {
@@ -61,7 +60,6 @@
 //! # Server example
 //!
 //! ```no_run
-//! # use tokio_util::compat::TokioAsyncReadCompatExt;
 //! # use tokio_stream::{wrappers::TcpListenerStream, StreamExt};
 //! # async fn doc() -> Result<(), soketto::BoxedError> {
 //! use soketto::{handshake::{Server, ClientRequest, server::Response}};
@@ -72,7 +70,7 @@
 //!
 //! while let Some(socket) = incoming.next().await {
 //!     // For each incoming connection we perform a handshake.
-//!     let mut server = Server::new(socket?.compat());
+//!     let mut server = Server::new(socket?);
 //!
 //!     let websocket_key = {
 //!         let req = server.receive_request().await?;
@@ -122,8 +120,8 @@ pub mod extension;
 pub mod handshake;
 
 use bytes::BytesMut;
-use futures::io::{AsyncRead, AsyncReadExt};
 use std::io;
+use tokio::io::{AsyncRead, AsyncReadExt};
 
 pub use connection::{Mode, Receiver, Sender};
 pub use data::{Data, Incoming};
