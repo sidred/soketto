@@ -17,9 +17,10 @@ use super::{
 use crate::connection::{self, Mode};
 use crate::{extension::Extension, Parsing};
 use bytes::{Buf, BytesMut};
-use futures::prelude::*;
 use sha1::{Digest, Sha1};
 use std::{mem, str};
+use tokio::io::AsyncWriteExt;
+use tokio::net::TcpStream;
 
 pub use httparse::Header;
 
@@ -27,9 +28,9 @@ const BLOCK_SIZE: usize = 8 * 1024;
 
 /// Websocket client handshake.
 #[derive(Debug)]
-pub struct Client<'a, T> {
+pub struct Client<'a> {
 	/// The underlying async I/O resource.
-	socket: T,
+	socket: TcpStream,
 	/// The HTTP host to send the handshake to.
 	host: &'a str,
 	/// The HTTP host ressource.
@@ -46,9 +47,9 @@ pub struct Client<'a, T> {
 	buffer: BytesMut,
 }
 
-impl<'a, T: AsyncRead + AsyncWrite + Unpin> Client<'a, T> {
+impl<'a> Client<'a> {
 	/// Create a new client handshake for some host and resource.
-	pub fn new(socket: T, host: &'a str, resource: &'a str) -> Self {
+	pub fn new(socket: TcpStream, host: &'a str, resource: &'a str) -> Self {
 		Client {
 			socket,
 			host,
@@ -115,7 +116,7 @@ impl<'a, T: AsyncRead + AsyncWrite + Unpin> Client<'a, T> {
 	}
 
 	/// Turn this handshake into a [`connection::Builder`].
-	pub fn into_builder(mut self) -> connection::Builder<T> {
+	pub fn into_builder(mut self) -> connection::Builder {
 		let mut builder = connection::Builder::new(self.socket, Mode::Client);
 		builder.set_buffer(self.buffer);
 		builder.add_extensions(self.extensions.drain(..));
@@ -123,14 +124,14 @@ impl<'a, T: AsyncRead + AsyncWrite + Unpin> Client<'a, T> {
 	}
 
 	/// Get out the inner socket of the client.
-	pub fn into_inner(self) -> T {
+	pub fn into_inner(self) -> TcpStream {
 		self.socket
 	}
 
 	/// Encode the client handshake as a request, ready to be sent to the server.
 	fn encode_request(&mut self) {
 		let nonce: [u8; 16] = rand::random();
-		base64::encode_config_slice(&nonce, base64::STANDARD, &mut self.nonce);
+		base64::encode_engine_slice(nonce, &mut self.nonce, &base64::engine::DEFAULT_ENGINE);
 		self.buffer.extend_from_slice(b"GET ");
 		self.buffer.extend_from_slice(self.resource.as_bytes());
 		self.buffer.extend_from_slice(b" HTTP/1.1");
@@ -190,11 +191,11 @@ impl<'a, T: AsyncRead + AsyncWrite + Unpin> Client<'a, T> {
 		expect_ascii_header(response.headers, "Upgrade", "websocket")?;
 		expect_ascii_header(response.headers, "Connection", "upgrade")?;
 
-		with_first_header(&response.headers, "Sec-WebSocket-Accept", |theirs| {
+		with_first_header(response.headers, "Sec-WebSocket-Accept", |theirs| {
 			let mut digest = Sha1::new();
-			digest.update(&self.nonce);
+			digest.update(self.nonce);
 			digest.update(KEY);
-			let ours = base64::encode(&digest.finalize());
+			let ours = base64::encode(digest.finalize());
 			if ours.as_bytes() != theirs {
 				return Err(Error::InvalidSecWebSocketAccept);
 			}

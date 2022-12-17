@@ -17,8 +17,9 @@ use super::{
 use crate::connection::{self, Mode};
 use crate::extension::Extension;
 use bytes::BytesMut;
-use futures::prelude::*;
 use std::{mem, str};
+use tokio::io::AsyncWriteExt;
+use tokio::net::TcpStream;
 
 // Most HTTP servers default to 8KB limit on headers
 const MAX_HEADERS_SIZE: usize = 8 * 1024;
@@ -26,8 +27,8 @@ const BLOCK_SIZE: usize = 8 * 1024;
 
 /// Websocket handshake server.
 #[derive(Debug)]
-pub struct Server<'a, T> {
-	socket: T,
+pub struct Server<'a> {
+	socket: TcpStream,
 	/// Protocols the server supports.
 	protocols: Vec<&'a str>,
 	/// Extensions the server supports.
@@ -36,9 +37,9 @@ pub struct Server<'a, T> {
 	buffer: BytesMut,
 }
 
-impl<'a, T: AsyncRead + AsyncWrite + Unpin> Server<'a, T> {
+impl<'a> Server<'a> {
 	/// Create a new server handshake.
-	pub fn new(socket: T) -> Self {
+	pub fn new(socket: TcpStream) -> Self {
 		Server { socket, protocols: Vec::new(), extensions: Vec::new(), buffer: BytesMut::new() }
 	}
 
@@ -113,7 +114,7 @@ impl<'a, T: AsyncRead + AsyncWrite + Unpin> Server<'a, T> {
 	}
 
 	/// Turn this handshake into a [`connection::Builder`].
-	pub fn into_builder(mut self) -> connection::Builder<T> {
+	pub fn into_builder(mut self) -> connection::Builder {
 		let mut builder = connection::Builder::new(self.socket, Mode::Server);
 		builder.set_buffer(self.buffer);
 		builder.add_extensions(self.extensions.drain(..));
@@ -121,7 +122,7 @@ impl<'a, T: AsyncRead + AsyncWrite + Unpin> Server<'a, T> {
 	}
 
 	/// Get out the inner socket of the server.
-	pub fn into_inner(self) -> T {
+	pub fn into_inner(self) -> TcpStream {
 		self.socket
 	}
 
@@ -142,7 +143,7 @@ impl<'a, T: AsyncRead + AsyncWrite + Unpin> Server<'a, T> {
 			return Err(Error::UnsupportedHttpVersion);
 		}
 
-		let host = with_first_header(&request.headers, "Host", Ok)?;
+		let host = with_first_header(request.headers, "Host", Ok)?;
 
 		expect_ascii_header(request.headers, "Upgrade", "websocket")?;
 		expect_ascii_header(request.headers, "Connection", "upgrade")?;
@@ -160,7 +161,7 @@ impl<'a, T: AsyncRead + AsyncWrite + Unpin> Server<'a, T> {
 			);
 		let headers = RequestHeaders { host, origin };
 
-		let ws_key = with_first_header(&request.headers, "Sec-WebSocket-Key", |k| {
+		let ws_key = with_first_header(request.headers, "Sec-WebSocket-Key", |k| {
 			WebSocketKey::try_from(k).map_err(|_| Error::SecWebSocketKeyInvalidLength(k.len()))
 		})?;
 
@@ -184,7 +185,7 @@ impl<'a, T: AsyncRead + AsyncWrite + Unpin> Server<'a, T> {
 	fn encode_response(&mut self, response: &Response<'_>) {
 		match response {
 			Response::Accept { key, protocol } => {
-				let accept_value = super::generate_accept_key(&key);
+				let accept_value = super::generate_accept_key(key);
 				self.buffer.extend_from_slice(
 					concat![
 						"HTTP/1.1 101 Switching Protocols",

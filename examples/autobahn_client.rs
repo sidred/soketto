@@ -85,8 +85,8 @@ async fn update_report() -> Result<(), BoxedError> {
 }
 
 #[cfg(not(feature = "deflate"))]
-fn new_client(socket: TcpStream, path: &str) -> handshake::Client<'_, BufReader<BufWriter<Compat<TcpStream>>>> {
-	handshake::Client::new(BufReader::new(BufWriter::new(socket.compat())), "127.0.0.1:9001", path)
+fn new_client(socket: TcpStream, path: &str) -> handshake::Client<'_> {
+	handshake::Client::new(socket, "127.0.0.1:9001", path)
 }
 
 #[cfg(feature = "deflate")]
