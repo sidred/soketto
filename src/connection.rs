@@ -580,7 +580,7 @@ async fn write_vectored<'a>(
 	w.write_all(header_bytes).await.or(Err(Error::Closed))?;
 
 	let size = w.write_vectored(data).await.or(Err(Error::Closed))?;
-	log::debug!("dene vectored write");
+	log::trace!("done vectored write");
 	Ok(size)
 }
 
